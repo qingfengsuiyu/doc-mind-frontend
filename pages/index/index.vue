@@ -1,7 +1,7 @@
 <template>
 	<view class="outer">
 		<view class="top">
-			论文助手
+			知识库问答助手
 		</view>
 		<view class="content">
 			<scroll-view scroll-y="true" class="scroll" :scroll-into-view="scrollToId">
@@ -42,16 +42,16 @@
 		})
 	}
 
-	const askQuestion = (question) => {
+	const askQuestion = (question,history) => {
 		return new Promise((resolve, reject) => {
 			uni.request({
-				url: 'http://127.0.0.1:8000/ask',
+				url: 'http://127.0.0.1:8000/ask/stream',
 				method: 'POST',
 				header: {
 					'Content-Type': 'application/json'
 				},
 				data: {
-					question
+					question,history
 				},
 				success: (res) => resolve(res.data),
 				fail: (err) => reject(err)
@@ -59,47 +59,32 @@
 		})
 	}
 
-	const handleSend = async (value) => {
-		// 空内容,直接返回
-		if (!inputValue.value) return
-		
-		// 没有文件也返回
-		if (isDocEmpty.value) {
-		    uni.showToast({ title: '请先上传文档', icon: 'none' })
-		    return
-		}
-
-		const question = inputValue.value
-
-		// 把用户消息加入对话历史
-		dialogHistory.value.push({
-			role: 'user',
-			content: inputValue.value
-		})
-		scrollToBottom()
-
-		// 清空输入框
-		inputValue.value = ''
-
-		// 开始和后端交互
-		isLoading.value = true
-		try {
-			const data = await askQuestion(question)
-			dialogHistory.value.push({
-				role: 'ai',
-				content: data.answer
-			})
-			scrollToBottom()
-		} catch (e) {
-			dialogHistory.value.push({
-				role: 'ai',
-				content: '请求失败，请重试'
-			})
-		} finally {
-			isLoading.value = false
-
-		}
-
+	const handleSend = async () => {
+	    if (!inputValue.value) return
+	    if (isDocEmpty.value) {
+	        uni.showToast({ title: '请先上传文档', icon: 'none' })
+	        return
+	    }
+	
+	    const question = inputValue.value
+	    // ← 先保存当前历史（不含这次提问）
+	    const history = [...dialogHistory.value]
+	
+	    dialogHistory.value.push({ role: 'user', content: question })
+	    scrollToBottom()
+	    inputValue.value = ''
+	
+	    isLoading.value = true
+	    try {
+	        // ← 传 history 而不是 dialogHistory.value
+			await askStream(question, history)
+	        // dialogHistory.value.push({ role: 'ai', content: data.answer })
+	        // scrollToBottom()
+	    } catch (e) {
+	        dialogHistory.value.push({ role: 'ai', content: '请求失败，请重试' })
+	    } finally {
+	        isLoading.value = false
+	    }
 	}
 
 	const handleUpdate = () => {
@@ -140,6 +125,47 @@
 
 		})
 	}
+	
+	const askStream = async (question, history) => {
+	    // 先在对话历史里加一条空的 AI 消息
+	    dialogHistory.value.push({ role: 'ai', content: '' })
+	    const aiIndex = dialogHistory.value.length - 1
+	    scrollToBottom()
+	
+	    const response = await fetch('http://127.0.0.1:8000/ask/stream', {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify({ question, history })
+	    })
+	
+	    // 拿到流读取器
+	    const reader = response.body.getReader()
+	    const decoder = new TextDecoder()
+	
+	    while (true) {
+	        const { done, value } = await reader.read()
+	        if (done) break
+	
+	        // 把二进制数据转成字符串
+	        const text = decoder.decode(value)
+	        
+	        // 按行分割，处理每一条 SSE 数据
+	        const lines = text.split('\n')
+	        for (const line of lines) {
+	            if (!line.startsWith('data: ')) continue
+	            const data = line.slice(6)  // 去掉 "data: " 前缀
+	            if (data === '[DONE]') break
+	            
+	            try {
+	                const parsed = JSON.parse(data)
+	                // 实时拼接到 AI 消息上
+	                dialogHistory.value[aiIndex].content += parsed.text
+	                scrollToBottom()
+	            } catch(e) {}
+	        }
+	    }
+	}
+		
 </script>
 
 <style lang="scss">
