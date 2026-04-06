@@ -3,6 +3,20 @@
 		<view class="top">
 			知识库问答助手
 		</view>
+		<view class="doc-bar">
+		    <scroll-view scroll-x="true" class="doc-list">
+		        <view 
+		            v-for="doc in docList" 
+		            :key="doc.filename"
+		            :class="['doc-item', currentDoc === doc.filename ? 'doc-item-active' : '']"
+		            @click="currentDoc = doc.filename"
+		        >
+		            {{ doc.filename }}
+		        </view>
+		    </scroll-view>
+		    <button class="upload-doc-btn" @click="handleUpdate">上传</button>
+		</view>
+		
 		<view class="content">
 			<scroll-view scroll-y="true" class="scroll" :scroll-into-view="scrollToId">
 				<view class="msg-list">
@@ -15,7 +29,7 @@
 			</scroll-view>
 		</view>
 		<view class="bottom">
-			<button @click="handleUpdate" class="upload-btn">📎</button>
+
 			<input class="inp" type="text" v-model="inputValue" placeholder="输入问题..." />
 			<button class="send-btn" @click="handleSend">发送</button>
 		</view>
@@ -26,14 +40,19 @@
 <script setup>
 	import {
 		ref,
-		nextTick
+		nextTick,
+		onMounted,
+		watch
 	} from 'vue'
 	const dialogHistory = ref([])
 	const inputValue = ref('')
 	const isLoading = ref(false)
 	const isDocEmpty = ref(true)
 	const scrollToId = ref('')
-
+	const docList = ref([])        // 文档列表
+	const currentDoc = ref('')     // 当前选中的文档名
+	
+	
 	// 每次消息更新后，滚动到底部
 	const scrollToBottom = () => {
 		scrollToId.value = ''
@@ -51,7 +70,7 @@
 					'Content-Type': 'application/json'
 				},
 				data: {
-					question,history
+					question,history,source: currentDoc.value
 				},
 				success: (res) => resolve(res.data),
 				fail: (err) => reject(err)
@@ -108,6 +127,7 @@
 			success: (res) => {
 				const data = JSON.parse(res.data)
 				isDocEmpty.value = false
+				loadDocs()  // ← 加这一行
 				uni.showToast({
 					title: '上传成功',
 					icon: 'success'
@@ -135,7 +155,7 @@
 	    const response = await fetch('http://127.0.0.1:8000/ask/stream', {
 	        method: 'POST',
 	        headers: { 'Content-Type': 'application/json' },
-	        body: JSON.stringify({ question, history })
+	        body: JSON.stringify({ question, history,source: currentDoc.value })
 	    })
 	
 	    // 拿到流读取器
@@ -165,7 +185,35 @@
 	        }
 	    }
 	}
-		
+	
+	const loadDocs = async () => {
+	    return new Promise((resolve, reject) => {
+	        uni.request({
+	            url: 'http://127.0.0.1:8000/documents',
+	            method: 'GET',
+	            success: (res) => {
+	                docList.value = res.data.docs
+	                // 如果有文档，默认选中第一个
+	                if (docList.value.length > 0) {
+	                    currentDoc.value = docList.value[0].filename
+	                    isDocEmpty.value = false
+	                }
+	                resolve()
+	            },
+	            fail: reject
+	        })
+	    })
+	}
+	
+	// 页面加载时获取文档列表
+	onMounted(async () => {
+	    await loadDocs()
+	})
+	
+	// 监听文档切换
+	watch(currentDoc, () => {
+	    dialogHistory.value = []
+	})
 </script>
 
 <style lang="scss">
@@ -275,5 +323,48 @@
 		color: #333333;
 		margin-right: auto;
 		margin-bottom: 12px;
+	}
+	
+	.doc-bar {
+	    display: flex;
+	    align-items: center;
+	    padding: 8px 12px;
+	    background-color: #ffffff;
+	    border-bottom: 1px solid #eee;
+	    gap: 8px;
+	
+	    .doc-list {
+	        flex: 1;
+	        white-space: nowrap;
+	
+	        .doc-item {
+	            display: inline-block;
+	            padding: 4px 12px;
+	            border-radius: 16px;
+	            font-size: 12px;
+	            background-color: #f5f5f5;
+	            color: #666;
+	            margin-right: 8px;
+	        }
+	
+	        .doc-item-active {
+	            background-color: #4080ff;
+	            color: #ffffff;
+	        }
+	    }
+	
+	    .upload-doc-btn {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+	        width: 60px;
+	        height: 30px;
+	        font-size: 12px;
+	        background-color: #f5f5f5;
+	        border: none;
+	        border-radius: 16px;
+	        color: #333;
+	        padding: 0;
+	    }
 	}
 </style>
