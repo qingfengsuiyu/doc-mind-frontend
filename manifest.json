@@ -1,6 +1,6 @@
 {
     "name" : "doc-mind-fronted",
-    "appid" : "",
+    "appid" : "__UNI__1F19B6F",
     "description" : "",
     "versionName" : "1.0.0",
     "versionCode" : "100",
@@ -68,5 +68,10 @@
     "uniStatistics" : {
         "enable" : false
     },
-    "vueVersion" : "3"
+	"h5": {
+	    "router": {
+	        "base": "/doc/"
+	    }
+	},
+	"vueVersion" : "3"
 }

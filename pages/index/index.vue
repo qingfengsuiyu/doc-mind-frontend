@@ -62,7 +62,7 @@
 	const askQuestion = (question, history) => {
 		return new Promise((resolve, reject) => {
 			uni.request({
-				url: 'http://127.0.0.1:8000/ask/stream',
+				url: 'http://47.82.90.240/doc-api/ask/stream',
 				method: 'POST',
 				header: {
 					'Content-Type': 'application/json'
@@ -130,7 +130,7 @@
 	const uploadFile = (file) => {
 		isLoading.value = true
 		uni.uploadFile({
-			url: 'http://127.0.0.1:8000/upload',
+			url: 'http://47.82.90.240/doc-api/upload',
 			filePath: file.path,
 			name: 'file',
 			success: (res) => {
@@ -164,7 +164,7 @@
 		const aiIndex = dialogHistory.value.length - 1
 		scrollToBottom()
 
-		const response = await fetch('http://127.0.0.1:8000/ask/stream', {
+		const response = await fetch('http://47.82.90.240/doc-api/ask/stream', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -210,7 +210,7 @@
 	const loadDocs = async () => {
 		return new Promise((resolve, reject) => {
 			uni.request({
-				url: 'http://127.0.0.1:8000/documents',
+				url: 'http://47.82.90.240/doc-api/documents',
 				method: 'GET',
 				success: (res) => {
 					docList.value = res.data.docs
@@ -240,7 +240,7 @@
 
 	const deleteDoc = (filename) => {
 		uni.request({
-			url: `http://127.0.0.1:8000/documents/${filename}`,
+			url: `http://47.82.90.240/doc-api/documents/${filename}`,
 			method: 'DELETE',
 			success: () => {
 				uni.showToast({
