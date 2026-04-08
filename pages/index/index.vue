@@ -22,6 +22,16 @@
 						:id="index === dialogHistory.length - 1 ? 'msg-last' : ''"
 						:class="['msg', item.role === 'user' ? 'msg-user' : 'msg-ai']">
 						{{ item.content }}
+						<!-- 只有 AI 消息且有来源时才显示 -->
+						<view v-if="item.sources && item.sources.length > 0" class="sources">
+							<view class="sources-title" @click="() => handleShowSources(item)">📎 参考来源({{ item.sources.length }}) {{ item.showSources ? '▲' : '▼' }}</view>
+							 <!-- 内容，只有 showSources 为 true 时才显示 -->
+							    <view v-if="item.showSources">
+							        <view v-for="(source, sIndex) in item.sources" :key="sIndex" class="source-item">
+							            {{ source }}
+							        </view>
+							    </view>
+						</view>
 					</view>
 				</view>
 			</scroll-view>
@@ -42,6 +52,14 @@
 		onMounted,
 		watch
 	} from 'vue'
+	
+	// 环境判断
+	const isDev = process.env.NODE_ENV === 'development'
+	const BASE_URL = isDev 
+	    ? 'http://127.0.0.1:8000' 
+	    : 'http://47.82.90.240/doc-api'
+		
+		
 	const dialogHistory = ref([])
 	const inputValue = ref('')
 	const isLoading = ref(false)
@@ -62,7 +80,7 @@
 	const askQuestion = (question, history) => {
 		return new Promise((resolve, reject) => {
 			uni.request({
-				url: 'http://47.82.90.240/doc-api/ask/stream',
+				url: `${BASE_URL}/ask/stream`,
 				method: 'POST',
 				header: {
 					'Content-Type': 'application/json'
@@ -130,7 +148,7 @@
 	const uploadFile = (file) => {
 		isLoading.value = true
 		uni.uploadFile({
-			url: 'http://47.82.90.240/doc-api/upload',
+			url: `${BASE_URL}/upload`,
 			filePath: file.path,
 			name: 'file',
 			success: (res) => {
@@ -154,17 +172,23 @@
 
 		})
 	}
-
+	
+	const handleShowSources = (item) => {
+		item.showSources = ! item.showSources;
+		
+	}
 	const askStream = async (question, history) => {
 		// 先在对话历史里加一条空的 AI 消息
 		dialogHistory.value.push({
 			role: 'ai',
-			content: ''
+			content: '',
+			sources: [],
+			showSources: false  // ← 新增，默认折叠
 		})
 		const aiIndex = dialogHistory.value.length - 1
 		scrollToBottom()
 
-		const response = await fetch('http://47.82.90.240/doc-api/ask/stream', {
+		const response = await fetch(`${BASE_URL}/ask/stream`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -199,8 +223,14 @@
 
 				try {
 					const parsed = JSON.parse(data)
-					// 实时拼接到 AI 消息上
-					dialogHistory.value[aiIndex].content += parsed.text
+					// 如果是普通文字,拼接到历史记录中
+					if (parsed.type === 'text') {
+						dialogHistory.value[aiIndex].content += parsed.content
+					} else if (parsed.type === 'sources') {
+						// 来源信息,存这条信息到其sources字段中
+						dialogHistory.value[aiIndex].sources = parsed.content
+					}
+
 					scrollToBottom()
 				} catch (e) {}
 			}
@@ -210,7 +240,7 @@
 	const loadDocs = async () => {
 		return new Promise((resolve, reject) => {
 			uni.request({
-				url: 'http://47.82.90.240/doc-api/documents',
+				url: `${BASE_URL}/documents`,
 				method: 'GET',
 				success: (res) => {
 					docList.value = res.data.docs
@@ -240,7 +270,7 @@
 
 	const deleteDoc = (filename) => {
 		uni.request({
-			url: `http://47.82.90.240/doc-api/documents/${filename}`,
+			url: `${BASE_URL}/documents/${filename}`,
 			method: 'DELETE',
 			success: () => {
 				uni.showToast({
@@ -426,17 +456,49 @@
 			padding: 0;
 		}
 	}
-	
+
 	.doc-item {
-	    display: inline-flex;
-	    align-items: center;
-	    gap: 4px;
-	    // 其他样式不变
-	    
-	    .doc-delete {
-	        font-size: 14px;
-	        line-height: 1;
-	        opacity: 0.6;
-	    }
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		// 其他样式不变
+
+		.doc-delete {
+			font-size: 14px;
+			line-height: 1;
+			opacity: 0.6;
+		}
+	}
+
+	.sources {
+		margin-top: 8px;
+		padding-top: 8px;
+		border-top: 1px solid #eee;
+
+		.sources-title {
+			font-size: 12px;
+			    color: #4080ff;
+			    cursor: pointer;
+			    display: inline-flex;
+			    align-items: center;
+			    gap: 4px;
+			    background-color: #f0f5ff;
+			    padding: 3px 8px;
+			    border-radius: 10px;
+			    margin-bottom: 6px;
+		}
+
+		.source-item {
+			font-size: 12px;
+			color: #666;
+			background-color: #f5f5f5;
+			border-radius: 6px;
+			padding: 6px 8px;
+			margin-bottom: 4px;
+			line-height: 1.5;
+			word-break: break-all;
+			font-family: sans-serif;   // ← 覆盖等宽字体
+			white-space: normal;       // ← 正常换行，不保留空白
+		}
 	}
 </style>
