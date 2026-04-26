@@ -296,7 +296,14 @@
 
 	// 页面加载时获取文档列表
 	onMounted(async () => {
-		await loadDocs()
+		// 检查是否已登录
+		    const token = uni.getStorageSync('token')
+		    if (!token) {
+		        uni.reLaunch({ url: '/pages/login/login' })
+		        return
+		    }
+		    
+		    await loadDocs()
 	})
 
 	// 监听文档切换
