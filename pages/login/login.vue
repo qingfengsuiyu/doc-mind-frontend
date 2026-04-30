@@ -33,8 +33,8 @@ const handleLogin = async () => {
 		success:(res) => {
 			if(res.statusCode===200){
 				// 把token存在本地
-				uni.setStorageSync('token',res.data.token)
-				uni.setStorageSync('username',res.data.username)
+				uni.setStorageSync('docmind_token',res.data.token)
+				uni.setStorageSync('docmind_username',res.data.username)
 				// 跳转到主页
 				uni.reLaunch({
 					url:'/pages/index/index'

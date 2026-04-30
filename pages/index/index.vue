@@ -78,7 +78,7 @@
 	}
 	
 	const getAuthHeader = () => {
-	    const token = uni.getStorageSync('token')
+	    const token = uni.getStorageSync('docmind_token')
 	    return { 'Authorization': `Bearer ${token}` }
 	}
 	
@@ -307,7 +307,7 @@
 	// 页面加载时获取文档列表
 	onMounted(async () => {
 		// 检查是否已登录
-		    const token = uni.getStorageSync('token')
+		    const token = uni.getStorageSync('docmind_token')
 		    if (!token) {
 		        uni.reLaunch({ url: '/pages/login/login' })
 		        return
