@@ -76,14 +76,20 @@
 			scrollToId.value = 'msg-last'
 		})
 	}
-
+	
+	const getAuthHeader = () => {
+	    const token = uni.getStorageSync('token')
+	    return { 'Authorization': `Bearer ${token}` }
+	}
+	
 	const askQuestion = (question, history) => {
 		return new Promise((resolve, reject) => {
 			uni.request({
 				url: `${BASE_URL}/ask/stream`,
 				method: 'POST',
 				header: {
-					'Content-Type': 'application/json'
+					'Content-Type': 'application/json',
+					...getAuthHeader(),
 				},
 				data: {
 					question,
@@ -151,6 +157,7 @@
 			url: `${BASE_URL}/upload`,
 			filePath: file.path,
 			name: 'file',
+			header: getAuthHeader(),
 			success: (res) => {
 				const data = JSON.parse(res.data)
 				isDocEmpty.value = false
@@ -191,7 +198,8 @@
 		const response = await fetch(`${BASE_URL}/ask/stream`, {
 			method: 'POST',
 			headers: {
-				'Content-Type': 'application/json'
+				'Content-Type': 'application/json',
+				...getAuthHeader(),
 			},
 			body: JSON.stringify({
 				question,
@@ -242,6 +250,7 @@
 			uni.request({
 				url: `${BASE_URL}/documents`,
 				method: 'GET',
+				header: getAuthHeader(),
 				success: (res) => {
 					docList.value = res.data.docs
 					// 如果有文档，默认选中第一个
@@ -272,6 +281,7 @@
 		uni.request({
 			url: `${BASE_URL}/documents/${filename}`,
 			method: 'DELETE',
+			header: getAuthHeader(),
 			success: () => {
 				uni.showToast({
 					title: '删除成功',
