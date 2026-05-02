@@ -161,11 +161,20 @@
 			success: (res) => {
 				const data = JSON.parse(res.data)
 				isDocEmpty.value = false
+				if(res.statusCode === 409){
+					uni.showToast({
+						title: '文件已存在',
+						icon: 'fail'
+					})
+				}
+				else{
+					uni.showToast({
+						title: '上传成功',
+						icon: 'success'
+					})
+				}
 				loadDocs() // ← 加这一行
-				uni.showToast({
-					title: '上传成功',
-					icon: 'success'
-				})
+				
 			},
 			fail: () => {
 				uni.showToast({
@@ -438,11 +447,12 @@
 		background-color: #ffffff;
 		border-bottom: 1px solid #eee;
 		gap: 8px;
+		overflow: hidden;  
 
 		.doc-list {
 			flex: 1;
 			white-space: nowrap;
-
+			min-width: 0; 
 			.doc-item {
 				display: inline-block;
 				padding: 4px 12px;
@@ -463,7 +473,8 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			width: 60px;
+			 flex-shrink: 0;
+			width: 50px;
 			height: 30px;
 			font-size: 12px;
 			background-color: #f5f5f5;

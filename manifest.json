@@ -68,10 +68,11 @@
     "uniStatistics" : {
         "enable" : false
     },
-	"h5": {
-	    "router": {
-	        "base": "/doc/"
-	    }
-	},
-	"vueVersion" : "3"
+    "h5" : {
+        "router" : {
+            "base" : "/doc/",
+            "mode" : "history"
+        }
+    },
+    "vueVersion" : "3"
 }
