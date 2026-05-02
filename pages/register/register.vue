@@ -5,9 +5,9 @@
 
 		<view class="form">
 			<input class="input" v-model="username" placeholder="用户名" />
-			<input class="input" v-model="password" placeholder="密码" password type="text" />
-			<input class="input" v-model="re_password" placeholder="确认密码" password type="text" />
-			<button class="btn" @click="handleRegister">注册</button>
+			<input class="input" v-model="password" placeholder="密码" type="password" />
+			<input class="input" v-model="re_password" placeholder="确认密码" type="password" />
+			<button class="btn" @click="handleRegister" :disabled="isLoading">{{ isLoading ? '注册中...' : '注册' }}</button>
 			<button class="btn btn-register" @click="handleLogin">返回登录</button>
 		</view>
 	</view>
@@ -17,7 +17,8 @@
 	import {
 		ref
 	} from 'vue'
-
+	
+	const isLoading = ref(false)
 	const isDev = process.env.NODE_ENV === 'development'
 	const BASE_URL = isDev ? 'http://127.0.0.1:8000' : 'http://47.82.90.240/doc-api'
 
@@ -40,6 +41,7 @@
 			})
 			return
 		}
+		isLoading.value = true
 		uni.request({
 			url: `${BASE_URL}/auth/register`,
 			method: 'POST',
@@ -62,12 +64,14 @@
 						icon: 'none'
 					})
 				}
+				isLoading.value = false
 			},
 			fail: () => {
 				uni.showToast({
 					title: '网络错误',
 					icon: 'none'
 				})
+				isLoading.value = false
 			}
 		})
 	}

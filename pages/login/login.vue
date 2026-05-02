@@ -5,8 +5,8 @@
         
         <view class="form">
             <input class="input" v-model="username" placeholder="用户名" />
-            <input class="input" v-model="password" placeholder="密码" password type="text" />
-            <button class="btn" @click="handleLogin">登录</button>
+            <input class="input" v-model="password" placeholder="密码" type="password" />
+            <button class="btn" @click="handleLogin" :disabled="isLoading"> {{ isLoading ? '登录中...' : '登录' }}</button>
             <button class="btn btn-register" @click="handleRegister">没有账号？去注册</button>
         </view>
     </view>
@@ -18,6 +18,7 @@ import { ref } from 'vue'
 const isDev = process.env.NODE_ENV === 'development'
 const BASE_URL = isDev ? 'http://127.0.0.1:8000' : 'http://47.82.90.240/doc-api'
 
+const isLoading = ref(false)
 const username = ref('')
 const password = ref('')
 
@@ -26,6 +27,7 @@ const handleLogin = async () => {
         uni.showToast({ title: '请输入用户名和密码', icon: 'none' })
         return
     }
+	isLoading.value = true;
 	uni.request({
 		url:`${BASE_URL}/auth/login`,
 		method:'POST',
@@ -44,10 +46,12 @@ const handleLogin = async () => {
 					title:res.data.detail || '登录失败',icon:'none'
 				})
 			}
+			isLoading.value = false;
 		},
 		fail:() => {
 			 uni.showToast({ title: '网络错误', icon: 'none' })
-		}
+			 isLoading.value = false;
+		},
 	})
 }
 
