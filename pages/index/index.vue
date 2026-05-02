@@ -67,7 +67,12 @@
 	const scrollToId = ref('')
 	const docList = ref([]) // 文档列表
 	const currentDoc = ref('') // 当前选中的文档名
-
+	
+	const handle401 = () => {
+	    uni.removeStorageSync('docmind_token')
+	    uni.showToast({ title: '登录已过期，请重新登录', icon: 'none' })
+	    uni.reLaunch({ url: '/pages/login/login' })
+	}
 
 	// 每次消息更新后，滚动到底部
 	const scrollToBottom = () => {
@@ -82,25 +87,6 @@
 	    return { 'Authorization': `Bearer ${token}` }
 	}
 	
-	const askQuestion = (question, history) => {
-		return new Promise((resolve, reject) => {
-			uni.request({
-				url: `${BASE_URL}/ask/stream`,
-				method: 'POST',
-				header: {
-					'Content-Type': 'application/json',
-					...getAuthHeader(),
-				},
-				data: {
-					question,
-					history,
-					source: currentDoc.value
-				},
-				success: (res) => resolve(res.data),
-				fail: (err) => reject(err)
-			})
-		})
-	}
 
 	const handleSend = async () => {
 		if (!inputValue.value) return
@@ -127,8 +113,6 @@
 		try {
 			// ← 传 history 而不是 dialogHistory.value
 			await askStream(question, history)
-			// dialogHistory.value.push({ role: 'ai', content: data.answer })
-			// scrollToBottom()
 		} catch (e) {
 			dialogHistory.value.push({
 				role: 'ai',
@@ -160,21 +144,24 @@
 			header: getAuthHeader(),
 			success: (res) => {
 				const data = JSON.parse(res.data)
+				
+				if(res.statusCode === 401){
+					handle401()
+					return 
+				}
 				isDocEmpty.value = false
 				if(res.statusCode === 409){
 					uni.showToast({
 						title: '文件已存在',
 						icon: 'fail'
 					})
-				}
-				else{
+				}else{
 					uni.showToast({
 						title: '上传成功',
 						icon: 'success'
 					})
 				}
-				loadDocs() // ← 加这一行
-				
+				loadDocs() 
 			},
 			fail: () => {
 				uni.showToast({
@@ -191,8 +178,9 @@
 	
 	const handleShowSources = (item) => {
 		item.showSources = ! item.showSources;
-		
 	}
+	
+	
 	const askStream = async (question, history) => {
 		// 先在对话历史里加一条空的 AI 消息
 		dialogHistory.value.push({
@@ -216,7 +204,13 @@
 				source: currentDoc.value
 			})
 		})
-
+		
+		if (response.status === 401) {
+			dialogHistory.value.pop() 
+		    handle401()
+		    return
+		}
+		
 		// 拿到流读取器
 		const reader = response.body.getReader()
 		const decoder = new TextDecoder()
@@ -261,6 +255,10 @@
 				method: 'GET',
 				header: getAuthHeader(),
 				success: (res) => {
+					if (res.statusCode === 401) {
+						handle401()
+						return
+					}
 					docList.value = res.data.docs
 					// 如果有文档，默认选中第一个
 					if (docList.value.length > 0) {
@@ -291,11 +289,17 @@
 			url: `${BASE_URL}/documents/${filename}`,
 			method: 'DELETE',
 			header: getAuthHeader(),
-			success: () => {
+			success: (res) => {
+				if(res.statusCode === 401){
+					handle401()
+					return 
+				}
+				
 				uni.showToast({
 					title: '删除成功',
 					icon: 'success'
 				})
+				
 				loadDocs()
 				// 如果删的是当前选中的文档，清空对话
 				if (currentDoc.value === filename) {
