@@ -20,7 +20,7 @@
 	
 	const isLoading = ref(false)
 	const isDev = process.env.NODE_ENV === 'development'
-	const BASE_URL = isDev ? 'http://127.0.0.1:8000' : 'http://47.82.90.240/doc-api'
+	const BASE_URL = isDev ? 'http://127.0.0.1:8000' : 'https://xiaoyihao.top/doc-api'
 
 	const username = ref('')
 	const password = ref('')

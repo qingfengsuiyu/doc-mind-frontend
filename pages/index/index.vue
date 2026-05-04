@@ -57,7 +57,7 @@
 	const isDev = process.env.NODE_ENV === 'development'
 	const BASE_URL = isDev 
 	    ? 'http://127.0.0.1:8000' 
-	    : 'http://47.82.90.240/doc-api'
+	    : 'https://xiaoyihao.top/doc-api'
 		
 		
 	const dialogHistory = ref([])
@@ -124,6 +124,7 @@
 	}
 
 	const handleUpdate = () => {
+		// #ifdef H5
 		uni.chooseFile({
 			count: 1,
 			type: 'file',
@@ -133,6 +134,19 @@
 				uploadFile(file)
 			}
 		})
+		// #endif
+
+		// #ifdef MP-WEIXIN
+		wx.chooseMessageFile({
+			count: 1,
+			type: 'file',
+			extension: ['pdf'],
+			success: (res) => {
+				const file = res.tempFiles[0]
+				uploadFile(file)
+			}
+		})
+		// #endif
 	}
 
 	const uploadFile = (file) => {
@@ -182,70 +196,108 @@
 	
 	
 	const askStream = async (question, history) => {
-		// 先在对话历史里加一条空的 AI 消息
-		dialogHistory.value.push({
-			role: 'ai',
-			content: '',
-			sources: [],
-			showSources: false  // ← 新增，默认折叠
-		})
-		const aiIndex = dialogHistory.value.length - 1
-		scrollToBottom()
-
-		const response = await fetch(`${BASE_URL}/ask/stream`, {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-				...getAuthHeader(),
-			},
-			body: JSON.stringify({
-				question,
-				history,
-				source: currentDoc.value
-			})
-		})
-		
-		if (response.status === 401) {
-			dialogHistory.value.pop() 
-		    handle401()
-		    return
-		}
-		
-		// 拿到流读取器
-		const reader = response.body.getReader()
-		const decoder = new TextDecoder()
-
-		while (true) {
-			const {
-				done,
-				value
-			} = await reader.read()
-			if (done) break
-
-			// 把二进制数据转成字符串
-			const text = decoder.decode(value)
-
-			// 按行分割，处理每一条 SSE 数据
-			const lines = text.split('\n')
-			for (const line of lines) {
-				if (!line.startsWith('data: ')) continue
-				const data = line.slice(6) // 去掉 "data: " 前缀
-				if (data === '[DONE]') break
-
-				try {
-					const parsed = JSON.parse(data)
-					// 如果是普通文字,拼接到历史记录中
-					if (parsed.type === 'text') {
-						dialogHistory.value[aiIndex].content += parsed.content
-					} else if (parsed.type === 'sources') {
-						// 来源信息,存这条信息到其sources字段中
-						dialogHistory.value[aiIndex].sources = parsed.content
-					}
-
-					scrollToBottom()
-				} catch (e) {}
-			}
-		}
+	    dialogHistory.value.push({
+	        role: 'ai',
+	        content: '',
+	        sources: [],
+	        showSources: false
+	    })
+	    const aiIndex = dialogHistory.value.length - 1
+	    scrollToBottom()
+	
+	    // #ifdef H5
+	    const response = await fetch(`${BASE_URL}/ask/stream`, {
+	        method: 'POST',
+	        headers: {
+	            'Content-Type': 'application/json',
+	            ...getAuthHeader(),
+	        },
+	        body: JSON.stringify({
+	            question,
+	            history,
+	            source: currentDoc.value
+	        })
+	    })
+	
+	    if (response.status === 401) {
+	        dialogHistory.value.pop()
+	        handle401()
+	        return
+	    }
+	
+	    const reader = response.body.getReader()
+	    const decoder = new TextDecoder()
+	
+	    while (true) {
+	        const { done, value } = await reader.read()
+	        if (done) break
+	        const text = decoder.decode(value)
+	        const lines = text.split('\n')
+	        for (const line of lines) {
+	            if (!line.startsWith('data: ')) continue
+	            const data = line.slice(6)
+	            if (data === '[DONE]') break
+	            try {
+	                const parsed = JSON.parse(data)
+	                if (parsed.type === 'text') {
+	                    dialogHistory.value[aiIndex].content += parsed.content
+	                } else if (parsed.type === 'sources') {
+	                    dialogHistory.value[aiIndex].sources = parsed.content
+	                }
+	                scrollToBottom()
+	            } catch (e) {}
+	        }
+	    }
+	    // #endif
+	
+	    // #ifdef MP-WEIXIN
+	    let buffer = ''
+	    const requestTask = uni.request({
+	        url: `${BASE_URL}/ask/stream`,
+	        method: 'POST',
+	        header: {
+	            'Content-Type': 'application/json',
+	            ...getAuthHeader(),
+	        },
+	        data: JSON.stringify({
+	            question,
+	            history,
+	            source: currentDoc.value
+	        }),
+	        enableChunked: true,
+	        success: (res) => {
+	            if (res.statusCode === 401) {
+	                dialogHistory.value.pop()
+	                handle401()
+	            }
+	        },
+	        fail: () => {
+	            dialogHistory.value[aiIndex].content = '请求失败，请重试'
+	        }
+	    })
+	
+	    requestTask.onChunkReceived((res) => {
+	        const decoder = new TextDecoder()
+	        const text = decoder.decode(res.data)
+	        buffer += text
+	        const lines = buffer.split('\n')
+	        buffer = lines.pop() // 保留不完整的最后一行
+	        for (const line of lines) {
+	            if (!line.startsWith('data: ')) continue
+	            const data = line.slice(6)
+	            if (data === '[DONE]') break
+	            try {
+	                const parsed = JSON.parse(data)
+	                if (parsed.type === 'text') {
+	                    dialogHistory.value[aiIndex].content += parsed.content
+	                } else if (parsed.type === 'sources') {
+	                    dialogHistory.value[aiIndex].sources = parsed.content
+	                }
+	                scrollToBottom()
+	            } catch (e) {}
+	        }
+	    })
+	    // #endif
 	}
 
 	const loadDocs = async () => {
